@@ -1,0 +1,55 @@
+
+#1 Basic set
+clear
+units           real
+boundary        f f f
+atom_style      full
+read_data       220.data
+neighbor        2.0 bin
+include         hkust1.mofff
+
+
+#1 Group set
+region          rfixed block INF INF INF INF INF 5
+group           fixed region rfixed
+group           dynamic subtract all fixed
+
+
+#3 Variables
+variable        temperature equal 300
+variable        seed equal 1024
+variable        tstep equal 1
+variable        tdamp   equal 1000
+compute         fixedTemp fixed temp
+compute         dynamicTemp dynamic temp
+
+comm_style      tiled
+fix             fixbalance all balance 1000 1.2 rcb
+
+
+#4 Relaxation
+thermo          100
+thermo_modify   lost ignore flush yes
+thermo_style    custom step temp c_fixedTemp c_dynamicTemp etotal lx ly lz pxx pyy pzz
+timestep        ${tstep}
+velocity        dynamic create ${temperature} ${seed} rot yes dist gaussian
+velocity        fixed set 0 0 0 units box
+fix             1 fixed setforce 0 0 0
+fix             2 dynamic nvt temp ${temperature} ${temperature} ${tdamp}
+dump            1 all custom 1000 indent.lammpstrj id type x y z
+#run             100000
+
+
+#6 Loading
+reset_timestep  0
+variable        rate equal  0.0001 #unit in angstrom per Femtosecond (A/fs)
+variable        zmove equal "190 - v_rate*elaplong*dt"
+thermo_style    custom step temp c_fixedTemp c_dynamicTemp etotal lx ly lz pxx pyy pzz v_zmove
+fix             3 all indent 10.0 plane z v_zmove hi units box
+fix             4 all ave/time 1 100 100 f_3 f_3[1] f_3[2] f_3[3] file indent_ouput1.txt
+fix             5 all ave/time 1 500 500 f_3 f_3[1] f_3[2] f_3[3] file indent_ouput2.txt
+fix             6 all ave/time 1 1000 1000 f_3 f_3[1] f_3[2] f_3[3] file indent_ouput3.txt
+fix             7 all ave/time 1 2000 2000 f_3 f_3[1] f_3[2] f_3[3] file indent_ouput4.txt
+run             1160000 #压到74埃
+
+
